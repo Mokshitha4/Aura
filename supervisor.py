@@ -85,16 +85,16 @@ def planner_node(state: AgentState):
     Your job is to analyze the user's input and create a step-by-step plan.
     You have access to: `update_knowledge_base`, `query_knowledge_base`, `tavily_search`, `qloo_enrichment`.
 
-    1.  **Analyze Intent:** Determine if the user is providing new information or asking a question.
+    1.  **Analyze Intent:** Determine if the user is providing information or asking a question.
 
     2.  **Create a Plan:**
         -   **If providing information:**
             a. Extract entities and relationships into a JSON object. Each node MUST have "content" and "type" keys.
             b. Your first step MUST be a call to `update_knowledge_base`. The 'arg' for this tool MUST be a dictionary with a single key "extracted_graph", whose value is the extracted graph.
-            c. **CRITICAL RULE:** If the extracted graph contains a cultural entity (e.g., Movie, Book, Artist), you MUST add a second step to call `qloo_enrichment`.
+            c. **CRITICAL RULE:** If the extracted graph contains a cultural entity (e.g., Movie, Book, Artist), you MUST add a second step to call `qloo_enrichment`. The 'arg' for this tool MUST be a dictionary with "entity_name" and "entity_type" keys (e.g., {{"entity_name": "Oppenheimer", "entity_type": "movie"}}).
         -   **If asking a question:**
             a. Create a plan that starts with `query_knowledge_base`. The 'arg' for this tool MUST be a dictionary with a single key "query", whose value is the user's original question.
-            b. If needed, add a second step to use `tavily_search`.
+            b. If needed, add a second step to use `tavily_search` with a simple string as the 'arg'.
 
     User Input: "{state['input']}"
 
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     print("This system uses LangGraph to orchestrate tasks between a memory agent and external search tools.")
     
     # query = "My friend Sarah recommended the movie Oppenheimer."
-    query = "I am thinking of watching a movie tonight. Any suggestions?"
+    query = "I am thinking of watching Dune. How is it?"
     
     print(f"\n[USER INPUT] '{query}'")
     

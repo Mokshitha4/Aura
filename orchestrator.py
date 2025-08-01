@@ -87,30 +87,30 @@ class AuraOrchestrator:
             logging.error(f"Failed to determine intent: {e}")
             return "UNKNOWN" # Default to a safe fallback
 
-if __name__ == '__main__':
-    # --- DEMONSTRATION of the Orchestrator ---
-    print("--- Initializing the full Aura system (Brain, Agent, Orchestrator) ---")
+# if __name__ == '__main__':
+#     # --- DEMONSTRATION of the Orchestrator ---
+#     print("--- Initializing the full Aura system (Brain, Agent, Orchestrator) ---")
     
-    # We need to initialize the brain and agent first
-    brain = AuraBrain()
-    agent = AuraAgent(brain)
-    orchestrator = AuraOrchestrator(agent)
+#     # We need to initialize the brain and agent first
+#     brain = AuraBrain()
+#     agent = AuraAgent(brain)
+#     orchestrator = AuraOrchestrator(agent)
 
-    print("\n--- Testing the Orchestrator's Intent Routing ---")
+#     print("\n--- Testing the Orchestrator's Intent Routing ---")
 
-    # Example 1: A complex statement
-    text1 = "My friend Sarah, who lives in Tokyo, recommended the movie Dune."
-    print(f"\n[INPUT] '{text1}'")
-    orchestrator.handle_request(text1) # This should trigger ADD_COMPLEX_KNOWLEDGE
+#     # Example 1: A complex statement
+#     text1 = "My friend Sarah, who lives in Tokyo, recommended the movie Dune."
+#     print(f"\n[INPUT] '{text1}'")
+#     orchestrator.handle_request(text1) # This should trigger ADD_COMPLEX_KNOWLEDGE
 
-    # Example 2: A question
-    text2 = "Who do I know that lives in Tokyo?"
-    print(f"\n[INPUT] '{text2}'")
-    response2 = orchestrator.handle_request(text2)
-    print(f"[AURA'S RESPONSE] {response2}")
+#     # Example 2: A question
+#     text2 = "Who do I know that lives in Tokyo?"
+#     print(f"\n[INPUT] '{text2}'")
+#     response2 = orchestrator.handle_request(text2)
+#     print(f"[AURA'S RESPONSE] {response2}")
 
-    # Example 3: A simple note
-    text3 = "Idea: a proactive travel planner."
-    print(f"\n[INPUT] '{text3}'")
-    response3 = orchestrator.handle_request(text3)
-    print(f"[AURA'S RESPONSE] {response3}")
+#     # Example 3: A simple note
+#     text3 = "Idea: a proactive travel planner."
+#     print(f"\n[INPUT] '{text3}'")
+#     response3 = orchestrator.handle_request(text3)
+#     print(f"[AURA'S RESPONSE] {response3}")

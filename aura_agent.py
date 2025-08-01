@@ -27,21 +27,22 @@ class AuraAgent:
         logging.info("AuraAgent initialized with tools.")
 
     # --- TOOL 1: Update Knowledge Base ---
-    def update_knowledge_base(self, text: str):
+    # *** EDIT APPLIED: This tool is now simpler. It no longer calls an LLM. ***
+    # It expects to receive a pre-extracted graph from the supervisor.
+    def update_knowledge_base(self, extracted_graph: dict):
         """
-        Tool to process unstructured text, extract entities and relationships,
-        enrich them with Qloo, and save them to the knowledge base.
+        Tool to save a pre-extracted graph of entities and relationships
+        to the personal knowledge base.
+        The 'extracted_graph' should be a dictionary with 'nodes' and 'edges' keys.
         Returns a confirmation message.
         """
-        logging.info(f"TOOL CALLED: update_knowledge_base with text: '{text[:50]}...'")
-        extracted_graph = self._extract_graph_from_text(text)
-        if not extracted_graph or not extracted_graph.get("nodes"):
-            self.brain.add_node(text, "Note")
-            self.brain.save()
-            return "Successfully saved the information as a single note."
-
+        logging.info(f"TOOL CALLED: update_knowledge_base with pre-extracted graph.")
+        
         nodes_data = extracted_graph.get("nodes", [])
         edges_data = extracted_graph.get("edges", [])
+
+        if not nodes_data:
+            return "No valid information was extracted to save."
 
         node_id_map = {}
         for node in nodes_data:
@@ -53,13 +54,6 @@ class AuraAgent:
             target_id = node_id_map.get(edge['target'])
             if source_id is not None and target_id is not None:
                 self.brain.add_edge(source_id, target_id, edge['relationship'])
-
-        if nodes_data:
-            primary_entity_content = nodes_data[0]['content']
-            primary_entity_type = nodes_data[0].get('type', 'person').lower()
-            primary_entity_id = node_id_map.get(primary_entity_content)
-            if primary_entity_id is not None:
-                self._enrich_node_with_qloo(primary_entity_id, primary_entity_content, primary_entity_type)
 
         self.brain.save()
         return f"Successfully updated the knowledge base with information about: {', '.join([n['content'] for n in nodes_data])}."
@@ -95,29 +89,39 @@ class AuraAgent:
             logging.error(f"Wikipedia search failed: {e}")
             return "Sorry, I had trouble searching online right now."
 
-    # --- Helper methods ---
-    def _extract_graph_from_text(self, text: str):
-        """Uses an LLM to perform the core information extraction task."""
-        prompt = f"""
-        You are an information extraction system. Analyze the following text and identify the key entities (nodes) and the factual relationships (edges) between them.
-        Return your answer as a single, valid JSON object with two keys: "nodes" and "edges".
-        
-        - Each node must have a "content" (string) and a "type" (string, e.g., Person, Location, Project, Movie, Note, Book, Artist).
-        - Each edge must have a "source" (string, matching a node's content), a "target" (string, matching a node's content), and a "relationship" (string, in uppercase, e.g., LIVES_IN, RECOMMENDED, MENTIONS).
-        - If no clear entities or relationships are found, return an empty JSON object.
-
-        Text: "{text}"
+    # --- TOOL 4: Qloo Enrichment ---
+    def qloo_enrichment(self, entity_name: str, entity_type: str):
         """
-        try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"}
-            )
-            return json.loads(response.choices[0].message.content)
-        except Exception as e:
-            logging.error(f"Failed during LLM graph extraction: {e}")
-            return None
+        Tool to find culturally related recommendations for a given entity (like a movie, book, or artist)
+        and add them to the knowledge base.
+        """
+        logging.info(f"TOOL CALLED: qloo_enrichment for entity: '{entity_name}'")
+        
+        source_node_id, _ = self.brain.get_node_by_content(entity_name)
+        if source_node_id is None:
+            return f"Error: Could not find the entity '{entity_name}' in the knowledge base to enrich."
+
+        recommendations = self._get_qloo_recommendations(entity_name, entity_type)
+        if not recommendations:
+            return f"Found no cultural recommendations for '{entity_name}'."
+            
+        added_recs = []
+        for rec in recommendations:
+            rec_name = rec.get("name")
+            rec_category = rec.get("category", "Recommendation").capitalize()
+            if rec_name:
+                target_node_id = self.brain.find_or_create_node(rec_name, rec_category)
+                if target_node_id is not None:
+                    self.brain.add_edge(source_node_id, target_node_id, f"QLOO_RECOMMENDS_{rec_category.upper()}")
+                    added_recs.append(rec_name)
+        
+        self.brain.save()
+        return f"Successfully added cultural recommendations for '{entity_name}': {', '.join(added_recs)}."
+
+
+    # --- Helper methods ---
+    # *** EDIT APPLIED: The _extract_graph_from_text method has been removed. ***
+    # This logic now belongs in the supervisor/orchestrator.
 
     def _get_qloo_entity_id(self, query: str, entity_type: str):
         """Step 1 of Qloo API: Search for an entity's unique ID."""
@@ -137,11 +141,12 @@ class AuraAgent:
             logging.error(f"Qloo API search error: {e}")
             return None
 
-    def _enrich_node_with_qloo(self, node_id: int, content: str, entity_type: str):
-        """Calls the Qloo API in a two-step process and adds recommendations."""
-        qloo_entity_id = self._get_qloo_entity_id(content, entity_type)
-        if not qloo_entity_id: return
+    def _get_qloo_recommendations(self, entity_name: str, entity_type: str):
+        """Calls the Qloo API in a two-step process to get recommendations."""
+        qloo_entity_id = self._get_qloo_entity_id(entity_name, entity_type)
+        if not qloo_entity_id: return []
 
+        all_recommendations = []
         output_types = ["place", "book", "music"]
         for output_type in output_types:
             payload = {"filter.type": f"urn:entity:{output_type}", "signal.interests.entities": qloo_entity_id, "limit": 2}
@@ -151,11 +156,8 @@ class AuraAgent:
                 response.raise_for_status()
                 recommendations = response.json().get("results", [])
                 for rec in recommendations:
-                    rec_name = rec.get("name")
-                    rec_category = output_type.capitalize()
-                    if rec_name:
-                        target_node_id = self.brain.find_or_create_node(rec_name, rec_category)
-                        if target_node_id is not None:
-                            self.brain.add_edge(node_id, target_node_id, f"RECOMMENDS_{rec_category.upper()}")
+                    rec['category'] = output_type # Add category for context
+                all_recommendations.extend(recommendations)
             except requests.exceptions.RequestException as e:
-                logging.warning(f"Could not fetch Qloo recommendations for '{content}' (type: {output_type}): {e}")
+                logging.warning(f"Could not fetch Qloo recommendations for '{entity_name}' (type: {output_type}): {e}")
+        return all_recommendations

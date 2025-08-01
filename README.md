@@ -57,13 +57,13 @@ source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
 # Install the required Python dependencies
 pip install -r requirements.txt
 
-# Set up your API keys
-# It is recommended to set these as system environment variables.
-# For example, on Windows:
-# setx OPENAI_API_KEY "your_openai_key"
-# setx TAVILY_API_KEY "your_tavily_key"
-# setx QLOO_API_KEY "your_qloo_key"
-# (You will need to restart your terminal after setting them)
+Set up your API keys
+It is recommended to set these as system environment variables.
+For example, on Windows:
+setx OPENAI_API_KEY "your_openai_key"
+setx TAVILY_API_KEY "your_tavily_key"
+setx QLOO_API_KEY "your_qloo_key"
+(You will need to restart your terminal after setting them)
 
 # Run the backend server
 uvicorn main:app --reload
